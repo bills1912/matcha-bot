@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matcha Pro AutoFill Bot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-6">
+  <div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+      <h1 class="text-3xl font-bold text-gray-800 mb-6">🤖 Matcha Pro AutoFill Bot</h1>
+      
+      <div class="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+        <h3 class="font-bold text-yellow-900 mb-2">🔐 Manual Login Required</h3>
+        <p class="text-sm text-yellow-800">
+          Bot akan membuka browser. Silakan <strong>login secara manual</strong>, kemudian bot akan otomatis melanjutkan proses pengisian data.
+        </p>
+      </div>
+
+      <div class="mb-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded">
+        <h3 class="font-bold text-blue-900 mb-2">📊 Lihat Progress</h3>
+        <p class="text-sm text-blue-800">
+          Semua log dan progress detail akan muncul di <strong>terminal/console</strong> tempat Anda menjalankan <code>npm start</code>
+        </p>
+      </div>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Nama Sheet *</label>
+          <input type="text" id="sheetName" placeholder="Contoh: Sheet1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Mulai dari Baris</label>
+            <input type="number" id="startRow" value="2" min="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Jumlah Baris</label>
+            <input type="number" id="maxRows" value="10" min="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div class="flex gap-4 pt-4">
+          <button id="startBtn" onclick="startBot()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+            ▶️ Mulai Bot
+          </button>
+          <button id="stopBtn" onclick="stopBot()" disabled class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50">
+            ⏸️ Stop Bot
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+        <h3 class="font-semibold text-blue-900 mb-2">Status: <span id="status">⚫ Idle</span></h3>
+        <div id="message" class="text-sm text-blue-800"></div>
+      </div>
+
+      <div class="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+        <h3 class="font-bold text-yellow-900 mb-2">⚠️ Catatan Penting:</h3>
+        <ul class="list-disc list-inside text-sm text-yellow-800 space-y-1">
+          <li>Pastikan Google Sheet sudah di-set public (Anyone with link can view)</li>
+          <li>Browser akan terbuka otomatis saat bot berjalan</li>
+          <li>Jangan tutup window browser saat bot berjalan</li>
+          <li><strong>Check terminal/console untuk log detail dan progress</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function startBot() {
+      const sheetName = document.getElementById('sheetName').value;
+      const startRow = parseInt(document.getElementById('startRow').value);
+      const maxRows = parseInt(document.getElementById('maxRows').value);
+
+      if (!sheetName) {
+        alert('Nama sheet harus diisi!');
+        return;
+      }
+
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      document.getElementById('status').textContent = '🟢 Running...';
+      document.getElementById('message').innerHTML = '✅ Bot started!<br>🔍 Browser will open - please login manually<br>📊 Check terminal for detailed progress';
+
+      try {
+        const response = await fetch('http://localhost:3000/api/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetName, startRow, maxRows })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          document.getElementById('message').innerHTML = `❌ ${data.error}`;
+          document.getElementById('startBtn').disabled = false;
+          document.getElementById('stopBtn').disabled = true;
+          document.getElementById('status').textContent = '⚫ Idle';
+        }
+      } catch (error) {
+        document.getElementById('message').innerHTML = `❌ Error: ${error.message}`;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+      }
+    }
+
+    async function stopBot() {
+      try {
+        const response = await fetch('http://localhost:3000/api/stop', {
+          method: 'POST'
+        });
+        
+        document.getElementById('message').innerHTML = '⏸️ Bot stopped';
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('status').textContent = '⚫ Stopped';
+      } catch (error) {
+        document.getElementById('message').innerHTML = `❌ Error: ${error.message}`;
+      }
+    }
+
+    // Check status setiap 2 detik
+    setInterval(async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/status');
+        const data = await response.json();
+        
+        if (!data.isRunning && document.getElementById('stopBtn').disabled === false) {
+          document.getElementById('startBtn').disabled = false;
+          document.getElementById('stopBtn').disabled = true;
+          document.getElementById('status').textContent = '⚫ Idle';
+          document.getElementById('message').innerHTML = '✅ Bot finished! Check terminal for details';
+        }
+      } catch (error) {
+        console.error('Status check error:', error);
+      }
+    }, 2000);
+  </script>
+</body>
+</html>
